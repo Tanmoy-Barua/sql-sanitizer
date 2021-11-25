@@ -20,7 +20,7 @@ app.use(sqlSanitizer);
 
 ## Usage
 
-code example:
+Example:
 
 ```js
 let express = require('express');
