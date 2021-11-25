@@ -5,8 +5,8 @@ branches:
     - master
 
 image:
-  - Visual Studio 2017
-  - Ubuntu
+  - Visual Studio Code
+  - Windows
 
 platform:
   - x64
