@@ -4,19 +4,10 @@ branches:
   only:
     - master
 
-image:
-  - Visual Studio Code
-  - Windows
 
-platform:
-  - x64
-
-configuration:
-  - Release
-  - Debug
-
+# Test against the latest version of this Node.js version
 environment:
-  nodejs_version: "14"
+  nodejs_version: "6"
 
 # Install scripts. (runs after repo cloning)
 install:
@@ -32,3 +23,6 @@ test_script:
   - npm --version
   # run tests
   - npm test
+
+# Don't actually build.
+build: off
