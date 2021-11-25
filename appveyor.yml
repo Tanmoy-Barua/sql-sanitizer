@@ -23,5 +23,3 @@ test_script:
   # run tests
   - npm test
 
-  init:
-    - git config --global core.autocrlf true
