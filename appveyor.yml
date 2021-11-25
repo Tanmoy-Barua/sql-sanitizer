@@ -4,6 +4,17 @@ branches:
   only:
     - master
 
+image:
+  - Visual Studio 2017
+  - Ubuntu
+
+platform:
+  - x64
+
+configuration:
+  - Release
+  - Debug
+
 environment:
   nodejs_version: "14"
 
