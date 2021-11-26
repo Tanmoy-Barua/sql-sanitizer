@@ -1,0 +1,27 @@
+{
+  "name": "sql-sanitizer",
+  "version": "1.0.0",
+  "description": "Here this express module detects SQL injection attacks and rejects the requests.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tanmoy-Barua/sql-sanitizer.git"
+  },
+  "keywords": [
+    "SQL",
+    "SQL",
+    "INJECTION",
+    "sql",
+    "injection",
+    "express-sqlinjection"
+  ],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Tanmoy-Barua/sql-sanitizer/issues"
+  },
+  "homepage": "https://github.com/Tanmoy-Barua/sql-sanitizer#readme"
+}
