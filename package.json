@@ -18,7 +18,7 @@
     "injection",
     "express-sqlinjection"
   ],
-  "author": "",
+  "author": "Wahidul Alam, Tanmoy Barua, Shuva Mai Paul, Umma Zannath Rishad",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/Tanmoy-Barua/sql-sanitizer/issues"
