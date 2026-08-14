@@ -82,9 +82,11 @@ describe('sqlSanitizer middleware (compat)', () => {
     }
   });
 
-  it('rejects SQL injection in route params when mounted on the route', async () => {
+  it('rejects SQL injection in path segments even with app-level middleware', async () => {
     const app = express();
-    app.get('/users/:id', sqlSanitizer, (_req, res) => res.status(200).json({ ok: true }));
+    // Path segments are scanned without waiting for Express to populate req.params.
+    app.use(sqlSanitizer);
+    app.get('/users/:id', (_req, res) => res.status(200).json({ ok: true }));
 
     const { server, port } = await listen(app);
     try {

@@ -1,7 +1,7 @@
 {
   "name": "sql-sanitizer",
-  "version": "1.2.0",
-  "description": "Express middleware that detects common SQL injection patterns and can block, detect, or monitor them. Not a substitute for parameterized queries.",
+  "version": "1.3.0",
+  "description": "Express SQL injection request filter with balanced detection, path-segment scanning, and parameterized sql`...` helpers.",
   "main": "index.js",
   "module": "index.mjs",
   "types": "index.d.ts",

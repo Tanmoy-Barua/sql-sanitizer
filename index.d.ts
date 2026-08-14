@@ -1,10 +1,12 @@
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
 
 export type SanitizerMode = 'block' | 'detect' | 'monitor';
+export type Sensitivity = 'balanced' | 'strict' | 'paranoid';
 
 export interface DetectionEvent {
   ts: string;
   mode: SanitizerMode;
+  sensitivity?: Sensitivity;
   method?: string;
   path: string;
   ip: string;
@@ -26,20 +28,21 @@ export interface RateLimitOptions {
 export interface SqlSanitizerOptions {
   /** block (default) | detect (log only) | monitor (log + attach req.sqlSanitizer) */
   mode?: SanitizerMode;
-  /** Skip scanning for these paths (exact or prefix: "/webhooks" → "/webhooks/...") */
+  /**
+   * Detection aggressiveness.
+   * - balanced (default): contextual attacks; allows O'Brien-style text
+   * - strict: balanced + comment/keyword and hex heuristics
+   * - paranoid: legacy bare `'`, `#`, `--` matching
+   */
+  sensitivity?: Sensitivity;
   allowRoutes?: Array<string | RegExp>;
-  /** Skip these body/query field names (matches suffix paths too, e.g. "bio" → "user.bio") */
   allowFields?: string[];
-  /** Structured detection callback */
   onDetection?: (event: DetectionEvent, req: Request) => void;
-  /** Logger with warn/log, or a function. null disables logging. */
   logger?:
     | { warn?: (payload: unknown) => void; log?: (payload: unknown) => void }
     | ((payload: unknown) => void)
     | null;
-  /** Count detections per client; in block mode excess returns 429 */
   rateLimit?: RateLimitOptions;
-  /** Override client identity for rate limiting */
   clientKey?: (req: Request) => string;
   errorMessage?: Record<string, unknown>;
   rateLimitMessage?: Record<string, unknown>;
@@ -49,6 +52,7 @@ export interface CheckResult {
   detected: boolean;
   pattern: string | null;
   value: string | null;
+  normalized: string | null;
 }
 
 export interface SanitizerStats {
@@ -74,25 +78,50 @@ export interface SecurityHeadersOptions {
   contentSecurityPolicy?: boolean | string;
 }
 
-export declare function hasSqlInjection(value: unknown): boolean;
-export declare function check(value: unknown): CheckResult;
+export interface ParameterizedQuery {
+  text: string;
+  values: unknown[];
+  dialect: 'pg' | 'mysql';
+}
+
+export declare function hasSqlInjection(
+  value: unknown,
+  options?: { sensitivity?: Sensitivity }
+): boolean;
+export declare function check(
+  value: unknown,
+  options?: { sensitivity?: Sensitivity }
+): CheckResult;
+export declare function normalizeForDetection(input: string): string;
 export declare function collectValues(input: unknown, out: string[]): void;
 export declare function collectFromRequest(
   req: Request,
   options?: { allowFields?: string[] }
 ): Array<{ path: string; value: string }>;
+export declare function collectPathSegments(
+  req: Partial<Request>,
+  out: Array<{ path: string; value: string }>
+): void;
 export declare function createMiddleware(options?: SqlSanitizerOptions): SqlSanitizerMiddleware;
 export declare function securityHeaders(options?: SecurityHeadersOptions): RequestHandler;
+export declare function sql(strings: TemplateStringsArray, ...values: unknown[]): ParameterizedQuery;
+export declare function sqlQ(strings: TemplateStringsArray, ...values: unknown[]): ParameterizedQuery;
+export declare function looksLikeConcatenatedSql(query: string): boolean;
 
 interface SqlSanitizerCallable {
   (options?: SqlSanitizerOptions): SqlSanitizerMiddleware;
   (req: Request, res: Response, next: NextFunction): void;
   hasSqlInjection: typeof hasSqlInjection;
   check: typeof check;
+  normalizeForDetection: typeof normalizeForDetection;
   collectValues: typeof collectValues;
   collectFromRequest: typeof collectFromRequest;
+  collectPathSegments: typeof collectPathSegments;
   createMiddleware: typeof createMiddleware;
   securityHeaders: typeof securityHeaders;
+  sql: typeof sql;
+  sqlQ: typeof sqlQ;
+  looksLikeConcatenatedSql: typeof looksLikeConcatenatedSql;
   default: SqlSanitizerCallable;
 }
 

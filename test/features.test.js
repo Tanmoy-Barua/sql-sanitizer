@@ -144,7 +144,7 @@ describe('allowlists', () => {
     try {
       const allowed = await postJson(port, '/webhooks/stripe', { note: "O'Brien" });
       assert.equal(allowed.status, 200);
-      const blocked = await postJson(port, '/login', { note: "O'Brien" });
+      const blocked = await postJson(port, '/login', { note: "1' OR '1'='1" });
       assert.equal(blocked.status, 403);
     } finally {
       server.close();
@@ -160,8 +160,22 @@ describe('allowlists', () => {
     try {
       const allowed = await postJson(port, '/profile', { bio: "O'Brien likes SQL", name: 'Ann' });
       assert.equal(allowed.status, 200);
-      const blocked = await postJson(port, '/profile', { about: "O'Brien" });
+      const blocked = await postJson(port, '/profile', { about: "1' OR '1'='1" });
       assert.equal(blocked.status, 403);
+    } finally {
+      server.close();
+    }
+  });
+
+  it('balanced mode allows apostrophe names without allowlist', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use(sqlSanitizer({ sensitivity: 'balanced' }));
+    app.post('/profile', (_req, res) => res.json({ ok: true }));
+    const { server, port } = await listen(app);
+    try {
+      const res = await postJson(port, '/profile', { name: "O'Brien" });
+      assert.equal(res.status, 200);
     } finally {
       server.close();
     }
@@ -237,9 +251,10 @@ describe('rate limiting', () => {
     app.get('/x', (_req, res) => res.json({ ok: true }));
     const { server, port } = await listen(app);
     try {
-      assert.equal((await request(port, { path: "/x?q='" })).status, 403);
-      assert.equal((await request(port, { path: "/x?q='" })).status, 403);
-      const limited = await request(port, { path: "/x?q='" });
+      const attack = "/x?q=1'%20OR%20'1'%3D'1";
+      assert.equal((await request(port, { path: attack })).status, 403);
+      assert.equal((await request(port, { path: attack })).status, 403);
+      const limited = await request(port, { path: attack });
       assert.equal(limited.status, 429);
       assert.equal(mw.stats.rateLimited >= 1, true);
     } finally {

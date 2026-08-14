@@ -1,8 +1,8 @@
 # sql-sanitizer
 
-Express middleware that **detects common SQL injection patterns** in the request URL, query string, route params, body (including nested JSON / GraphQL), and multipart filenames — then **blocks**, **detects**, or **monitors** them.
+Express middleware that **detects common SQL injection patterns** in the request URL, path segments, query string, route params, body (nested JSON / GraphQL), and multipart filenames — then **blocks**, **detects**, or **monitors** them.
 
-> **Honest positioning:** this is a heuristic request filter, **not** a sanitizer and **not** a replacement for parameterized queries / prepared statements. Use both.
+It also ships a small **parameterized SQL helper** (`sql` / `sqlQ`) so apps can stop string-concatenating queries.
 
 ## Installation
 
@@ -17,19 +17,49 @@ Requires Express 4+ (peer dependency). Node 14+.
 ```js
 const express = require('express');
 const sqlSanitizer = require('sql-sanitizer');
+const { sql } = sqlSanitizer;
 
 const app = express();
 app.use(express.json());
-app.use(sqlSanitizer.securityHeaders()); // optional companion
-app.use(sqlSanitizer); // block mode by default
+app.use(sqlSanitizer.securityHeaders());
+app.use(sqlSanitizer); // balanced + block by default
 
-app.listen(4000);
+app.get('/users/:id', async (req, res) => {
+  // Real protection at the DB layer:
+  const q = sql`SELECT * FROM users WHERE id = ${req.params.id}`;
+  // db.query(q.text, q.values)
+  res.json({ query: q });
+});
 ```
 
-ESM:
+## Solving common pain points
+
+### Fewer false positives
+Default `sensitivity: 'balanced'` does **not** block normal text like `O'Brien` or `2020--2021`.  
+Use `strict` or `paranoid` only if you want noisier matching.
 
 ```js
-import sqlSanitizer, { check, securityHeaders } from 'sql-sanitizer';
+app.use(sqlSanitizer({ sensitivity: 'balanced' })); // default
+app.use(sqlSanitizer({ sensitivity: 'paranoid' })); // legacy bare ', #, --
+```
+
+### Harder bypasses
+Inputs are normalized before matching (URL decoding, `/**/` comment stripping), and high-signal patterns cover OR/UNION/stacked queries, time-based probes, and more.
+
+### Path params without route-level mount
+Path segments are scanned from the URL itself, so app-level `app.use(sqlSanitizer)` still catches `/users/1' OR '1'='1` even before Express fills `req.params`.
+
+### Parameterized queries (the real fix)
+Middleware is a filter. Safe SQL is still required:
+
+```js
+const { sql, sqlQ } = require('sql-sanitizer');
+
+sql`SELECT * FROM users WHERE email = ${email}`;
+// -> { text: 'SELECT * FROM users WHERE email = $1', values: [email], dialect: 'pg' }
+
+sqlQ`SELECT * FROM users WHERE email = ${email}`;
+// -> { text: 'SELECT * FROM users WHERE email = ?', values: [email], dialect: 'mysql' }
 ```
 
 ## Modes
@@ -38,76 +68,31 @@ import sqlSanitizer, { check, securityHeaders } from 'sql-sanitizer';
 |------|----------|
 | `block` (default) | Respond `403` (or `429` if rate-limited) |
 | `detect` | Log / call `onDetection`, then `next()` |
-| `monitor` | Like detect, and set `req.sqlSanitizer` + expose `middleware.stats` |
+| `monitor` | Like detect, plus `req.sqlSanitizer` and `middleware.stats` |
 
-```js
-app.use(sqlSanitizer({
-  mode: 'detect', // try dry-run before enforcing
-  logger: console,
-  onDetection(event) {
-    // structured event: ts, path, ip, field, pattern, sample, ...
-  },
-}));
-```
-
-## Allowlists
-
-```js
-app.use(sqlSanitizer({
-  allowRoutes: ['/webhooks', /^\/health/],
-  allowFields: ['bio', 'search'], // also matches user.bio
-}));
-```
-
-## Rate limiting
-
-Counts SQLi-like detections per client (IP by default):
+## Options
 
 ```js
 app.use(sqlSanitizer({
   mode: 'block',
+  sensitivity: 'balanced',
+  allowRoutes: ['/webhooks'],
+  allowFields: ['bio'],
   rateLimit: { windowMs: 60_000, max: 10 },
+  logger: console,
+  onDetection(event) { /* SIEM / Slack */ },
 }));
 ```
 
-After `max` detections in the window, further hits return **429**.
-
 ## What it checks
 
-- `req.originalUrl` / `req.url`
-- `req.query`, `req.params`
-- `req.body` (nested objects/arrays, GraphQL `query` / `variables`)
-- `req.files` filenames (multer-style)
-- optional `req.rawBody`
+- `originalUrl` / `url`
+- decoded **path segments** (covers route params early)
+- `query`, `params`, nested `body` (GraphQL included)
+- `files` filenames (multer-style)
+- optional `rawBody`
 
-Mount **after** body parsers (`express.json()`, `urlencoded`, multer, etc.).
-
-## API
-
-### `check(value)` / `hasSqlInjection(value)`
-
-```js
-const { check, hasSqlInjection } = require('sql-sanitizer');
-
-check("1' OR '1'='1");
-// { detected: true, pattern: 'sql_meta', value: "1' OR '1'='1" }
-
-hasSqlInjection('hello'); // false
-```
-
-### `securityHeaders([options])`
-
-Small optional header helper (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, …).
-
-### TypeScript
-
-Types ship via `index.d.ts`.
-
-## Limitations
-
-- False positives are possible (names with `'`, comments with `--`, etc.). Use allowlists.
-- Attackers can craft bypasses; keep using parameterized SQL.
-- `req.params` is only populated when this middleware runs on a matched route (URL text is still scanned via `originalUrl`).
+Mount after body parsers.
 
 ## License
 
