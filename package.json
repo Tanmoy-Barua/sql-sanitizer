@@ -1,27 +1,55 @@
 {
   "name": "sql-sanitizer",
-  "version": "1.0.0",
-  "description": "Here this express module detects SQL injection attacks and rejects the requests.",
+  "version": "1.2.0",
+  "description": "Express middleware that detects common SQL injection patterns and can block, detect, or monitor them. Not a substitute for parameterized queries.",
   "main": "index.js",
+  "module": "index.mjs",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./index.js",
+      "default": "./index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.mjs",
+    "index.d.ts",
+    "lib/",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test/*.test.js",
+    "demo": "node demo-server.js"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Tanmoy-Barua/sql-sanitizer.git"
   },
   "keywords": [
-    "SQL",
-    "SQL",
-    "INJECTION",
     "sql",
-    "injection",
-    "express-sqlinjection"
+    "sql-injection",
+    "express",
+    "middleware",
+    "security",
+    "waf"
   ],
   "author": "Wahidul Alam, Tanmoy Barua, Shuva Mai Paul, Umma Zannath Rishad",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/Tanmoy-Barua/sql-sanitizer/issues"
   },
-  "homepage": "https://github.com/Tanmoy-Barua/sql-sanitizer#readme"
+  "homepage": "https://github.com/Tanmoy-Barua/sql-sanitizer#readme",
+  "engines": {
+    "node": ">=14"
+  },
+  "peerDependencies": {
+    "express": ">=4"
+  },
+  "devDependencies": {
+    "express": "^4.21.2"
+  }
 }
