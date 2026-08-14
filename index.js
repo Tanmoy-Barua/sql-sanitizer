@@ -1,65 +1,60 @@
-function hasSqlInjection(value) {
- 
-    const sqlMeta = new RegExp('(%27)|(\')|(--)|(%23)|(#)', 'i');
-    if (sqlMeta.test(value)) {
-        return true;
-    }
+'use strict';
 
-    const sqlMeta2 = new RegExp('((%3D)|(=))[^\n]*((%27)|(\')|(--)|(%3B)|(;))', 'i');
-    if (sqlMeta2.test(value)) {
-        return true;
-    }
+const { hasSqlInjection, check, normalizeForDetection } = require('./lib/detect');
+const { collectValues, collectFromRequest, collectPathSegments } = require('./lib/collect');
+const { createMiddleware } = require('./lib/middleware');
+const { securityHeaders } = require('./lib/security-headers');
+const { sql, sqlQ, looksLikeConcatenatedSql } = require('./lib/safe-sql');
 
-    const sqlTypical = new RegExp('w*((%27)|(\'))((%6F)|o|(%4F))((%72)|r|(%52))', 'i');
-    if (sqlTypical.test(value)) {
-        return true;
-    } 
+const defaultMiddleware = createMiddleware({ mode: 'block', sensitivity: 'balanced' });
 
-    const sqlUnion = new RegExp('((%27)|(\'))union', 'i');
-    if (sqlUnion.test(value)) {
-        return true;
-    }
-    return false;
+/**
+ * Express middleware / factory.
+ *
+ * @param {object|import('express').Request} [reqOrOptions]
+ * @param {import('express').Response} [res]
+ * @param {import('express').NextFunction} [next]
+ */
+function sqlSanitizer(reqOrOptions, res, next) {
+  const looksLikeRequest =
+    reqOrOptions &&
+    typeof reqOrOptions === 'object' &&
+    typeof next === 'function' &&
+    res &&
+    typeof res.status === 'function' &&
+    (typeof reqOrOptions.method === 'string' ||
+      typeof reqOrOptions.url === 'string' ||
+      typeof reqOrOptions.originalUrl === 'string');
+
+  if (looksLikeRequest) {
+    return defaultMiddleware(reqOrOptions, res, next);
+  }
+
+  return createMiddleware(reqOrOptions || {});
 }
 
+sqlSanitizer.hasSqlInjection = hasSqlInjection;
+sqlSanitizer.check = check;
+sqlSanitizer.normalizeForDetection = normalizeForDetection;
+sqlSanitizer.collectValues = collectValues;
+sqlSanitizer.collectFromRequest = collectFromRequest;
+sqlSanitizer.collectPathSegments = collectPathSegments;
+sqlSanitizer.createMiddleware = createMiddleware;
+sqlSanitizer.securityHeaders = securityHeaders;
+sqlSanitizer.sql = sql;
+sqlSanitizer.sqlQ = sqlQ;
+sqlSanitizer.looksLikeConcatenatedSql = looksLikeConcatenatedSql;
 
-function middleware(req, res, next) {
- 
-    let containsSql = false;
-
-    let message = {error: 'Request is detecting SQL Injection'};
-   
-
-    if (req.originalUrl !== null && req.originalUrl !== undefined) {
-        if (hasSqlInjection(req.originalUrl) === true) {
-            containsSql = true;
-        }
-    }
-
-    if (containsSql === false) {
-        let body = req.body;
-        if(body !== null && body !== undefined){
-            
-            if (typeof body !== 'string') {
-                body = JSON.stringify(body);
-            }
-            
-            if (hasSqlInjection(body) === true) {
-                containsSql = true; 
-            }
-        }
- 
-        
-        if(containsSql === true){
-            res.status(403).json(message);
-        }
-        else{
-            next();
-        }
-
-    } else {
-        res.status(403).json(message);
-    }
-}
-
-module.exports = middleware;
+module.exports = sqlSanitizer;
+module.exports.hasSqlInjection = hasSqlInjection;
+module.exports.check = check;
+module.exports.normalizeForDetection = normalizeForDetection;
+module.exports.collectValues = collectValues;
+module.exports.collectFromRequest = collectFromRequest;
+module.exports.collectPathSegments = collectPathSegments;
+module.exports.createMiddleware = createMiddleware;
+module.exports.securityHeaders = securityHeaders;
+module.exports.sql = sql;
+module.exports.sqlQ = sqlQ;
+module.exports.looksLikeConcatenatedSql = looksLikeConcatenatedSql;
+module.exports.default = sqlSanitizer;
