@@ -1,15 +1,29 @@
 {
   "name": "sql-sanitizer",
-  "version": "1.1.0",
-  "description": "Express middleware that detects common SQL injection patterns in request URL, query, params, and body, then rejects with 403.",
+  "version": "1.2.0",
+  "description": "Express middleware that detects common SQL injection patterns and can block, detect, or monitor them. Not a substitute for parameterized queries.",
   "main": "index.js",
+  "module": "index.mjs",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./index.js",
+      "default": "./index.js"
+    }
+  },
   "files": [
     "index.js",
+    "index.mjs",
+    "index.d.ts",
+    "lib/",
     "LICENSE",
     "README.md"
   ],
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "demo": "node demo-server.js"
   },
   "repository": {
     "type": "git",
@@ -20,7 +34,8 @@
     "sql-injection",
     "express",
     "middleware",
-    "security"
+    "security",
+    "waf"
   ],
   "author": "Wahidul Alam, Tanmoy Barua, Shuva Mai Paul, Umma Zannath Rishad",
   "license": "MIT",

@@ -39,7 +39,7 @@ function request(port, { method = 'GET', path = '/', headers = {}, body } = {}) 
           } catch {
             json = data;
           }
-          resolve({ status: res.statusCode, body: json });
+          resolve({ status: res.statusCode, body: json, headers: res.headers });
         });
       }
     );
@@ -51,8 +51,8 @@ function request(port, { method = 'GET', path = '/', headers = {}, body } = {}) 
   });
 }
 
-describe('sqlSanitizer middleware', () => {
-  it('allows clean GET requests', async () => {
+describe('sqlSanitizer middleware (compat)', () => {
+  it('allows clean GET requests with bare export', async () => {
     const app = express();
     app.use(sqlSanitizer);
     app.get('/ok', (_req, res) => res.status(200).json({ ok: true }));
@@ -84,7 +84,6 @@ describe('sqlSanitizer middleware', () => {
 
   it('rejects SQL injection in route params when mounted on the route', async () => {
     const app = express();
-    // req.params is only populated after the route matches, so mount on the route.
     app.get('/users/:id', sqlSanitizer, (_req, res) => res.status(200).json({ ok: true }));
 
     const { server, port } = await listen(app);

@@ -2,13 +2,14 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { hasSqlInjection, collectValues } = require('../index.js');
+const { hasSqlInjection, check, collectValues } = require('../index.js');
 
-describe('hasSqlInjection', () => {
+describe('hasSqlInjection / check', () => {
   it('returns false for nullish and empty values', () => {
     assert.equal(hasSqlInjection(null), false);
     assert.equal(hasSqlInjection(undefined), false);
     assert.equal(hasSqlInjection(''), false);
+    assert.equal(check('').detected, false);
   });
 
   it('returns false for benign strings', () => {
@@ -21,7 +22,7 @@ describe('hasSqlInjection', () => {
     assert.equal(hasSqlInjection("O'Brien"), true);
     assert.equal(hasSqlInjection('1--'), true);
     assert.equal(hasSqlInjection('topic#drop'), true);
-    assert.equal(hasSqlInjection('%27or%201'), true);
+    assert.equal(check("%27or%201").pattern, 'sql_meta');
   });
 
   it('detects equals followed by SQL meta', () => {
@@ -39,13 +40,22 @@ describe('hasSqlInjection', () => {
     assert.equal(hasSqlInjection("'union"), true);
     assert.equal(hasSqlInjection("' UNION SELECT"), true);
     assert.equal(hasSqlInjection('1) UNION SELECT username FROM users'), true);
+    assert.equal(check('1) UNION SELECT username FROM users').pattern, 'sql_union_select');
+  });
+
+  it('check() returns structured result', () => {
+    const ok = check('safe');
+    assert.deepEqual(ok, { detected: false, pattern: null, value: 'safe' });
+    const bad = check("1' OR '1'='1");
+    assert.equal(bad.detected, true);
+    assert.equal(typeof bad.pattern, 'string');
   });
 });
 
 describe('collectValues', () => {
   it('flattens nested objects and arrays', () => {
     const out = [];
-    collectValues({ a: 1, nested: { b: "ok", list: ['x', 2] } }, out);
+    collectValues({ a: 1, nested: { b: 'ok', list: ['x', 2] } }, out);
     assert.deepEqual(out.sort(), ['1', '2', 'a', 'b', 'list', 'nested', 'ok', 'x'].sort());
   });
 });
