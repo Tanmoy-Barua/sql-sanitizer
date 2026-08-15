@@ -1,18 +1,21 @@
 # sql-sanitizer
 
-Express middleware that **detects common SQL injection patterns** in the request URL, path segments, query string, route params, body (nested JSON / GraphQL), and multipart filenames — then **blocks**, **detects**, or **monitors** them.
+[![npm version](https://img.shields.io/npm/v/sql-sanitizer.svg)](https://www.npmjs.com/package/sql-sanitizer)
+[![node](https://img.shields.io/node/v/sql-sanitizer.svg)](https://nodejs.org)
+[![CI](https://github.com/Tanmoy-Barua/sql-sanitizer/actions/workflows/ci.yml/badge.svg)](https://github.com/Tanmoy-Barua/sql-sanitizer/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/sql-sanitizer.svg)](./LICENSE)
 
-It also ships a small **parameterized SQL helper** (`sql` / `sqlQ`) so apps can stop string-concatenating queries.
+SQL injection **request filter** for **Express / Fastify / Koa / Nest**, with presets, stats/Prometheus, a CI concat scanner, and parameterized `sql` / `sqlQ` helpers.
 
-## Installation
+> Heuristic middleware is a supplement — always use parameterized queries for real safety.
+
+## Install
 
 ```bash
 npm install sql-sanitizer
 ```
 
-Requires Express 4+ (peer dependency). Node 14+.
-
-## Quick start
+## Quick start (Express)
 
 ```js
 const express = require('express');
@@ -20,79 +23,76 @@ const sqlSanitizer = require('sql-sanitizer');
 const { sql } = sqlSanitizer;
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(express.json());
-app.use(sqlSanitizer.securityHeaders());
-app.use(sqlSanitizer); // balanced + block by default
+app.use(sqlSanitizer({
+  preset: 'api',
+  trustProxy: 1,
+  statsRoute: '/__sql-sanitizer/stats',
+}));
 
 app.get('/users/:id', async (req, res) => {
-  // Real protection at the DB layer:
   const q = sql`SELECT * FROM users WHERE id = ${req.params.id}`;
-  // db.query(q.text, q.values)
-  res.json({ query: q });
+  res.json(q);
 });
 ```
 
-## Solving common pain points
-
-### Fewer false positives
-Default `sensitivity: 'balanced'` does **not** block normal text like `O'Brien` or `2020--2021`.  
-Use `strict` or `paranoid` only if you want noisier matching.
+## Adapters
 
 ```js
-app.use(sqlSanitizer({ sensitivity: 'balanced' })); // default
-app.use(sqlSanitizer({ sensitivity: 'paranoid' })); // legacy bare ', #, --
+// Fastify
+fastify.addHook('preHandler', sqlSanitizer.fastify({ preset: 'api' }));
+// or: await fastify.register(sqlSanitizer.fastifyPlugin({ preset: 'graphql' }));
+
+// Koa
+app.use(sqlSanitizer.koa({ preset: 'form' }));
+
+// NestJS (Express adapter)
+consumer.apply(sqlSanitizer.nest({ preset: 'api' })).forRoutes('*');
 ```
 
-### Harder bypasses
-Inputs are normalized before matching (URL decoding, `/**/` comment stripping), and high-signal patterns cover OR/UNION/stacked queries, time-based probes, and more.
+## Presets
 
-### Path params without route-level mount
-Path segments are scanned from the URL itself, so app-level `app.use(sqlSanitizer)` still catches `/users/1' OR '1'='1` even before Express fills `req.params`.
+| Preset | Intent |
+|--------|--------|
+| `api` | Balanced API defaults + rate limit |
+| `form` | Allows common free-text fields (`bio`, `comment`, …) |
+| `graphql` | Stricter sensitivity for GraphQL bodies |
 
-### Parameterized queries (the real fix)
-Middleware is a filter. Safe SQL is still required:
+## Stats & Prometheus
 
 ```js
-const { sql, sqlQ } = require('sql-sanitizer');
-
-sql`SELECT * FROM users WHERE email = ${email}`;
-// -> { text: 'SELECT * FROM users WHERE email = $1', values: [email], dialect: 'pg' }
-
-sqlQ`SELECT * FROM users WHERE email = ${email}`;
-// -> { text: 'SELECT * FROM users WHERE email = ?', values: [email], dialect: 'mysql' }
+const mw = sqlSanitizer({ statsRoute: '/__sql-sanitizer/stats', statsToken: 'secret' });
+app.use(mw);
+// GET /__sql-sanitizer/stats  (header x-sql-sanitizer-token: secret)
+// GET /__sql-sanitizer/stats?format=prometheus
+mw.prometheus(); // text exposition
 ```
 
-## Modes
+## CI scanner
 
-| Mode | Behavior |
-|------|----------|
-| `block` (default) | Respond `403` (or `429` if rate-limited) |
-| `detect` | Log / call `onDetection`, then `next()` |
-| `monitor` | Like detect, plus `req.sqlSanitizer` and `middleware.stats` |
+```bash
+npx sql-sanitizer scan .
+npx sql-sanitizer scan ./src --json
+```
 
-## Options
+Exit code `2` when potential unsafe SQL concatenation is found.
+
+## Trusted proxy
 
 ```js
-app.use(sqlSanitizer({
-  mode: 'block',
-  sensitivity: 'balanced',
-  allowRoutes: ['/webhooks'],
-  allowFields: ['bio'],
-  rateLimit: { windowMs: 60_000, max: 10 },
-  logger: console,
-  onDetection(event) { /* SIEM / Slack */ },
-}));
+sqlSanitizer({ trustProxy: false }); // ignore X-Forwarded-For (anti-spoof)
+sqlSanitizer({ trustProxy: 1 });     // one proxy hop
+sqlSanitizer({ trustProxy: true });  // trust CDN / XFF / CF-Connecting-IP
 ```
 
-## What it checks
+## Examples
 
-- `originalUrl` / `url`
-- decoded **path segments** (covers route params early)
-- `query`, `params`, nested `body` (GraphQL included)
-- `files` filenames (multer-style)
-- optional `rawBody`
+See [`examples/`](./examples) — Postgres-style, MySQL-style, and before/after demo.
 
-Mount after body parsers.
+## Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md).
 
 ## License
 

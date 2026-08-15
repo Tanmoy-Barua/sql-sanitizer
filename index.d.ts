@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction, RequestHandler } from 'express';
 
 export type SanitizerMode = 'block' | 'detect' | 'monitor';
 export type Sensitivity = 'balanced' | 'strict' | 'paranoid';
+export type PresetName = 'api' | 'form' | 'graphql';
 
 export interface DetectionEvent {
   ts: string;
@@ -26,15 +27,21 @@ export interface RateLimitOptions {
 }
 
 export interface SqlSanitizerOptions {
-  /** block (default) | detect (log only) | monitor (log + attach req.sqlSanitizer) */
   mode?: SanitizerMode;
-  /**
-   * Detection aggressiveness.
-   * - balanced (default): contextual attacks; allows O'Brien-style text
-   * - strict: balanced + comment/keyword and hex heuristics
-   * - paranoid: legacy bare `'`, `#`, `--` matching
-   */
   sensitivity?: Sensitivity;
+  /** Named defaults: api | form | graphql */
+  preset?: PresetName;
+  /**
+   * Trust proxy headers when resolving client IP.
+   * false = ignore X-Forwarded-For (anti-spoof).
+   * true = leftmost XFF / CDN headers.
+   * number = hop count from the right.
+   */
+  trustProxy?: boolean | number | string;
+  /** Built-in stats path, e.g. '/__sql-sanitizer/stats' */
+  statsRoute?: string | null;
+  /** Optional shared secret for statsRoute (header x-sql-sanitizer-token or ?token=) */
+  statsToken?: string | null;
   allowRoutes?: Array<string | RegExp>;
   allowFields?: string[];
   onDetection?: (event: DetectionEvent, req: Request) => void;
@@ -66,6 +73,8 @@ export interface SanitizerStats {
 export interface SqlSanitizerMiddleware extends RequestHandler {
   stats: SanitizerStats;
   options: SqlSanitizerOptions;
+  statsHandler: RequestHandler;
+  prometheus: () => string;
   resetRateLimit?: () => void;
 }
 
@@ -83,6 +92,18 @@ export interface ParameterizedQuery {
   values: unknown[];
   dialect: 'pg' | 'mysql';
 }
+
+export interface ScanFinding {
+  file: string;
+  line: number;
+  column: number;
+  pattern: string;
+  sample: string;
+}
+
+export declare const PRESETS: Record<PresetName, Partial<SqlSanitizerOptions>>;
+export declare function getPreset(name: PresetName | string): Partial<SqlSanitizerOptions>;
+export declare function applyPreset(options?: SqlSanitizerOptions): SqlSanitizerOptions;
 
 export declare function hasSqlInjection(
   value: unknown,
@@ -108,6 +129,36 @@ export declare function sql(strings: TemplateStringsArray, ...values: unknown[])
 export declare function sqlQ(strings: TemplateStringsArray, ...values: unknown[]): ParameterizedQuery;
 export declare function looksLikeConcatenatedSql(query: string): boolean;
 
+export declare function fastify(options?: SqlSanitizerOptions): ((request: any, reply: any) => Promise<void>) & {
+  stats: SanitizerStats;
+  options: SqlSanitizerOptions;
+};
+export declare function fastifyPlugin(options?: SqlSanitizerOptions): ((instance: any) => Promise<void>) & {
+  stats: SanitizerStats;
+  options: SqlSanitizerOptions;
+};
+export declare function koa(options?: SqlSanitizerOptions): ((ctx: any, next: () => Promise<void>) => Promise<void>) & {
+  stats: SanitizerStats;
+  options: SqlSanitizerOptions;
+};
+export declare function nest(options?: SqlSanitizerOptions): SqlSanitizerMiddleware;
+
+export declare function toPrometheus(stats: SanitizerStats, prefix?: string): string;
+export declare function createStatsHandler(
+  middleware: SqlSanitizerMiddleware,
+  options?: { format?: 'json' | 'prometheus'; token?: string }
+): RequestHandler;
+export declare function resolveClientIp(
+  req: Partial<Request>,
+  options?: { trustProxy?: boolean | number | string; clientKey?: (req: any) => string }
+): string;
+export declare function defaultClientKey(req: Partial<Request>): string;
+export declare function scanContent(filePath: string, content: string): ScanFinding[];
+export declare function scanDirectory(
+  rootDir: string,
+  options?: { extensions?: string[]; ignore?: string[] }
+): { root: string; filesScanned: number; findings: ScanFinding[] };
+
 interface SqlSanitizerCallable {
   (options?: SqlSanitizerOptions): SqlSanitizerMiddleware;
   (req: Request, res: Response, next: NextFunction): void;
@@ -122,6 +173,19 @@ interface SqlSanitizerCallable {
   sql: typeof sql;
   sqlQ: typeof sqlQ;
   looksLikeConcatenatedSql: typeof looksLikeConcatenatedSql;
+  fastify: typeof fastify;
+  fastifyPlugin: typeof fastifyPlugin;
+  koa: typeof koa;
+  nest: typeof nest;
+  PRESETS: typeof PRESETS;
+  getPreset: typeof getPreset;
+  applyPreset: typeof applyPreset;
+  toPrometheus: typeof toPrometheus;
+  createStatsHandler: typeof createStatsHandler;
+  resolveClientIp: typeof resolveClientIp;
+  defaultClientKey: typeof defaultClientKey;
+  scanDirectory: typeof scanDirectory;
+  scanContent: typeof scanContent;
   default: SqlSanitizerCallable;
 }
 
