@@ -18,6 +18,14 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - run: npm install
       - run: npm test
-      - run: node bin/sql-sanitizer.js scan . --json > /tmp/scan.json
-      - name: Fail if scanner crashes
-        run: test -f /tmp/scan.json
+      - name: Run concat scanner (exit 2 = findings found, still OK)
+        run: |
+          set +e
+          node bin/sql-sanitizer.js scan . --json > /tmp/scan.json
+          code=$?
+          set -e
+          # 0 = clean, 2 = findings; anything else is a crash
+          if [ "$code" -ne 0 ] && [ "$code" -ne 2 ]; then
+            exit "$code"
+          fi
+          test -s /tmp/scan.json
