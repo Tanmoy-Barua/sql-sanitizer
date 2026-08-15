@@ -1,6 +1,8 @@
 # Changelog
 
-## 1.4.0
+## 2.0.0
+
+Major feature release expanding sql-sanitizer from Express-only middleware into a broader Node security toolkit.
 
 ### Added
 - Framework adapters: `fastify()`, `fastifyPlugin()`, `koa()`, `nest()`
@@ -8,12 +10,16 @@
 - Stats dashboard via `statsRoute` / `statsHandler`, plus `prometheus()` / `toPrometheus()`
 - CLI: `sql-sanitizer scan [dir]` for unsafe SQL concatenation detection
 - Trusted proxy IP resolution: `trustProxy`, `cf-connecting-ip`, `x-real-ip`, `true-client-ip`
-- Official examples under `examples/`
-- CI + npm publish GitHub Actions, engines badge docs
+- Official examples under `examples/` (including Northline Notes realtime demo)
+- CI + npm publish GitHub Actions
 
-### Notes
-- Default detection remains `sensitivity: 'balanced'`
-- Prefer parameterized `sql` / `sqlQ` helpers at the database layer
+### Includes from 1.x hardening
+- Balanced / strict / paranoid sensitivity
+- Path-segment scanning, encoding/comment normalization
+- Modes: block / detect / monitor
+- Allowlists, rate limiting, security headers
+- Parameterized `sql` / `sqlQ` helpers
+- TypeScript types + ESM exports
 
 ## 1.3.0
 

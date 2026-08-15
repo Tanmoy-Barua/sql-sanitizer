@@ -1,6 +1,6 @@
 {
   "name": "sql-sanitizer",
-  "version": "1.4.0",
+  "version": "2.0.0",
   "description": "SQL injection request filter for Express/Fastify/Koa/Nest with presets, stats, CLI scanner, and parameterized sql helpers.",
   "main": "index.js",
   "module": "index.mjs",
